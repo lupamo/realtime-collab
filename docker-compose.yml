@@ -1,0 +1,208 @@
+version: '3.8'
+services:
+#  database:
+  postgres:
+    image: postgres:15-alpine
+    container_name: collab-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: collab_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - collab-network
+
+  #cache & message broker
+  redis:
+    image: redis:7-alpine
+    container_name: collab-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - collab-network
+  
+  #Auth service
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: collab-auth
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/collab_platform
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=supersecretkey
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=15
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+      condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/auth-service:/app
+      - ./backend/shared:/app/shared
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - collab-network
+    
+    #Task service
+  task-service:
+    build:
+      context: ./backend/task-service
+      dockerfile: Dockerfile
+    container_name: collab-task
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/collab_platform
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=supersecretkey
+      - AUTH_SERVICE_URL=http://auth-service:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    volumes:
+      - ./backend/task-service:/app
+      - ./backend/shared:/app/shared
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    networks:
+      - collab-network
+  
+  #Websocket service
+  websocket-service:
+    build:
+      context: ./backend/websocket-service
+      dockerfile: Dockerfile
+    container_name: collab-websocket
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=supersecretkey
+      - AUTH_SERVICE_URL=http://auth-service:8000
+    ports:
+      - "8002:8002"
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    volumes:
+      - ./backend/websocket-service:/app
+      - ./backend/shared:/app/shared
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+    networks:
+      - collab-network
+  
+
+  #Celery worker
+  celery-worker:
+    build:
+      context: ./backend/task-service
+      dockerfile: Dockerfile
+    container_name: collab-celery
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/collab_platform
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/task-service:/app
+      - ./backend/shared:/app/shared
+    command: celery -A celery_app worker --loglevel=info
+    networks:
+      - collab-network
+
+  #Celery Beat (scheduler)
+  celery-beat:
+    build:
+      context: ./backend/task-service
+      dockerfile: Dockerfile
+    container_name: collab-celery-beat
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/collab_platform
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/task-service:/app
+      - ./backend/shared:/app/shared
+    command: celery -A celery_app beat --loglevel=info
+    networks:
+      - collab-network
+  
+  #API Getway (Nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: collab-nginx
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - task-service
+      - websocket-service
+    networks:
+      - collab-network 
+  
+  #Frontend (NextJs)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: collab-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:3000/ws
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    networks:
+      - collab-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+
+networks:
+  collab-network:
+    driver: bridge
+
