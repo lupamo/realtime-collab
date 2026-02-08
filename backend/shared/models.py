@@ -64,7 +64,7 @@ class User(Base):
 	#Relationships
 	teams = relationship('Team', secondary=team_members, back_populates='members')
 	owned_teams = relationship('Team', back_populates='owner', foreign_keys='Team.owner_id')
-	created_projects = relationship('Projects', back_populates='creator', foreign_keys='Projects.created_by')
+	created_projects = relationship('Project', back_populates='creator', foreign_keys='Project.created_by')
 	assigned_tasks = relationship('Task',back_populates='assignee', foreign_keys='Task.assigned_to')
 	created_tasks = relationship('Task', back_populates='creator', foreign_keys='Task.created_by')
 	refresh_tokens = relationship('RefreshToken', back_populates='user', cascade="all, delete-orphan")
@@ -104,12 +104,12 @@ class Team(Base):
 	#relationships
 	owner = relationship('User', back_populates='owned_teams', foreign_keys=[owner_id])
 	members = relationship('User', secondary=team_members, back_populates='teams')
-	projects = relationship('Projects', back_populates='team', cascade="all, delete-orphan")
+	projects = relationship('Project', back_populates='team', cascade="all, delete-orphan")
 
 	def __repr__(self):
 		return f"<Team(id={self.id}), name={self.name}'>"
 	
-class Projects(Base):
+class Project(Base):
 	__tablename__ = 'projects'
 
 	id = Column(Integer, primary_key=True, index=True)
@@ -132,7 +132,7 @@ class Projects(Base):
 	)
 
 	def __repr__(self):
-		return f"<Projects(id={self.id}, name='{self.name}')>"
+		return f"<Project(id={self.id}, name='{self.name}')>"
 	
 class Task(Base):
 	__tablename__ = 'tasks'
@@ -159,7 +159,7 @@ class Task(Base):
 	updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 	#Relationships
-	project = relationship('Projects', back_populates='tasks')
+	project = relationship('Project', back_populates='tasks')
 	assignee = relationship('User', back_populates='assigned_tasks', foreign_keys=[assigned_to])
 	creator = relationship('User', back_populates='created_tasks', foreign_keys=[created_by])
 	comments = relationship('Comment', back_populates='task', cascade="all, delete-orphan")
