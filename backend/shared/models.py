@@ -7,11 +7,11 @@ from datetime import datetime
 from enum import Enum
 from sqlalchemy import (
 	Column, Integer, String, Text, Boolean, DateTime,
-	ForeignKey, Table, Enum as SQLEnu, Index
+	ForeignKey, Table, Enum as SQLEnum, Index
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlachemy.sql import func
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -42,7 +42,7 @@ team_members = Table(
 	Column('team_id', Integer, ForeignKey('teams.id', ondelete="CASCADE"), primary_key=True),
 	Column('user_id', Integer, ForeignKey('users.id', ondelete="CASCADE"), primary_key=True),
 	Column('role', SQLEnum(TeamRole), nullable=False, default=TeamRole.MEMBER),
-	Column('joined_at', DateTime, default=datetime.now(datetime.timezone.utc)),
+	Column('joined_at', DateTime, server_default=func.now()),
 	Index('idx_team_members_user', 'user_id'),
 	Index('idx_team_members_team', 'team_id')
 )
@@ -58,8 +58,8 @@ class User(Base):
 	avatar_url = Column(String(500))
 	is_active = Column(Boolean, default=True)
 	is_superuser = Column(Boolean, default=False)
-	created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc))
-	updated_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc))
+	created_at = Column(DateTime, server_default=func.now())
+	updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 	#Relationships
 	teams = relationship('Team', secondary=team_members, back_populates='members')
@@ -82,7 +82,7 @@ class RefreshToken(Base):
 	user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
 	expires_at = Column(DateTime, nullable=False)
 	revoked = Column(Boolean, default=False)
-	created_at = Column(DateTime, default=datetime.utcnow)
+	created_at = Column(DateTime, server_default=func.now())
 
 	#Relationships
 	user = relationship('User', back_populates='refresh_tokens')
@@ -98,8 +98,8 @@ class Team(Base):
 	name = Column(String(255), nullable=False)
 	description = Column(Text)
 	owner_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-	created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc))
-	updated_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc))
+	created_at = Column(DateTime, server_default=func.now())
+	updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 	#relationships
 	owner = relationship('User', back_populates='owned_teams', foreign_keys=[owner_id])
@@ -118,8 +118,8 @@ class Projects(Base):
 	team_id = Column(Integer, ForeignKey('teams.id', ondelete='CASCADE'), nullable=False)
 	created_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'))
 	is_archived = Column(Boolean, default=False)
-	created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc))
-	updated_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc))
+	created_at = Column(DateTime, server_default=func.now())
+	updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 	#Relationships
 	team = relationship('Team', back_populates='projects')
@@ -155,8 +155,8 @@ class Task(Base):
 	ai_category = Column(String(100))
 	ai_suggested_priority = Column(SQLEnum(TaskPriority))
 
-	created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc))
-	updated_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc))
+	created_at = Column(DateTime, server_default=func.now())
+	updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 	#Relationships
 	project = relationship('Projects', back_populates='tasks')
@@ -182,8 +182,8 @@ class Comment(Base):
 	content = Column(Text, nullable=False)
 	task_id = Column(Integer, ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False, index=True)
 	user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-	created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc))
-	updated_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc))
+	created_at = Column(DateTime, server_default=func.now())
+	updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 	#Relationships
 	task = relationship('Task', back_populates='comments')
