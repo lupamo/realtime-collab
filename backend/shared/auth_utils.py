@@ -5,8 +5,8 @@ Used across all services for validating tokens.
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict
-import jwt
-from jwt.exceptions import InvalidTokenError
+from jose import jwt
+from jose.exceptions import JWTError
 from passlib.context import CryptContext
 import os
 
@@ -86,13 +86,13 @@ def decode_token(token: str) -> Dict:
 		dict: decoded token payload if valid
 
 	Raises:
-		InvalidTokenError: if the token is invalid or expired
+		JWTError: if the token is invalid or expired
 	"""
 	try:
 		payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 		return payload
-	except InvalidTokenError as e:
-		raise InvalidTokenError(f"Invalid token: {str(e)}")
+	except JWTError as e:
+		raise JWTError(f"Invalid token: {str(e)}")
 	
 def get_user_id_from_token(token: str) -> Optional[int]:
 	"""
