@@ -1,2 +1,5 @@
 .env
 backend/venv
+docker-compose.yml.bak
+*.pyc
+__pycache__/
