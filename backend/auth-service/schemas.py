@@ -13,6 +13,11 @@ class UserCreate(BaseModel):
 	password: str = Field(..., min_length=8, description="Password must be at least 8 characters long")
 	full_name: Optional[str] = None
 
+class UserLogin(BaseModel):
+	"""Schema for user login"""
+	email: EmailStr
+	password: str 
+	
 class UserResponse(BaseModel):
 	"""Schema for user info in responses"""
 	id: int

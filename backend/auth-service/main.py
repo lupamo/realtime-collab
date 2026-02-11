@@ -35,7 +35,7 @@ from schemas import (
 	UserResponse,
 	RefreshTokenRequest,
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 
 #create tables
@@ -163,7 +163,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
 	db_refresh_token = models.RefreshToken(
 		token_hash=token_hash,
 		user_id=user.id,
-		expires_at=datetime.now(datetime.timezone.utc) + timedelta(days=7)
+		expires_at=datetime.now(timezone.utc) + timedelta(days=7)
 	)
 	db.add(db_refresh_token)
 	db.commit()
@@ -203,7 +203,7 @@ async def refresh_token(
 		models.RefreshToken.token_hash == token_hash,
 		models.RefreshToken.user_id == user_id,
 		models.RefreshToken.revoked == False,
-		models.RefreshToken.expires_at > datetime.now(datetime.timezone.utc)
+		models.RefreshToken.expires_at > datetime.now(timezone.utc)
 	).first()
 
 	if not db_token:
