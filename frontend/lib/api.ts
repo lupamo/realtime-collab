@@ -4,7 +4,7 @@ import { TokenResponse, LoginCredentials, RegisterData, User, Team, TeamCreate, 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 // ==================== TOKEN MANAGEMENT ====================
-// Store access token in memory (NOT localStorage - security best practice)
+// Store access token in memory
 // Refresh token stored in httpOnly cookie by server
 
 let accessToken: string | null = null
@@ -20,7 +20,7 @@ export const tokenManager = {
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true, // Send cookies for refresh token
+  withCredentials: true, 
 })
 
 // Request interceptor - attach access token to every request
@@ -38,7 +38,6 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean }
 
-    // If 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true
 
