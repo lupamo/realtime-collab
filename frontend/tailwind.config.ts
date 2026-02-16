@@ -19,7 +19,6 @@ module.exports = {
         mono: ['var(--font-geist-mono)', 'monospace'],
       },
       colors: {
-        // Design system tokens
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

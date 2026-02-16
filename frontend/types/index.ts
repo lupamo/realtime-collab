@@ -119,8 +119,12 @@ export interface TaskUpdate {
   version: number  // Required for optimistic locking
 }
 
-// ==================== WEBSOCKET TYPES ====================
+// ==================== KANBAN ====================
 
+export const KANBAN_COLS: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done']
+
+
+// ==================== WEBSOCKET TYPES ====================
 export type WSMessageType =
   | 'task_created'
   | 'task_updated'
@@ -157,6 +161,9 @@ export interface PaginatedResponse<T> {
   page: number
   size: number
 }
+export interface KanbanColumn {
+  id: TaskStatus; title: string; color: string; tasks: Task[]
+}
 
 // ==================== UI TYPES ====================
 
@@ -167,17 +174,17 @@ export interface KanbanColumn {
   tasks: Task[]
 }
 
-export const TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bg: string }> = {
-  todo:        { label: 'To Do',       color: 'text-gray-400',   bg: 'bg-gray-400/10' },
-  in_progress: { label: 'In Progress', color: 'text-blue-400',   bg: 'bg-blue-400/10' },
-  in_review:   { label: 'In Review',   color: 'text-purple-400', bg: 'bg-purple-400/10' },
-  done:        { label: 'Done',        color: 'text-emerald-400',bg: 'bg-emerald-400/10' },
-  archived:    { label: 'Archived',    color: 'text-gray-600',   bg: 'bg-gray-600/10' },
+export const TASK_STATUS_CONFIG: Record<TaskStatus, {label: string; color: string; bg: string; dot: string}> = {
+  todo:        { label: 'To Do',       color: '#8A877E', bg: '#F5F4EF', dot: '#8A877E' },
+  in_progress: { label: 'In Progress', color: '#1A56FF', bg: '#EEF2FF', dot: '#1A56FF' },
+  in_review:   { label: 'In Review',   color: '#7C3AED', bg: '#F5F3FF', dot: '#7C3AED' },
+  done:        { label: 'Done',        color: '#00C781', bg: '#F0FDF9', dot: '#00C781' },
+  archived:    { label: 'Archived',    color: '#C8C5BB', bg: '#F5F4EF', dot: '#C8C5BB' },
 }
 
-export const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; dot: string }> = {
-  low:    { label: 'Low',    color: 'text-gray-400',   dot: 'bg-gray-400' },
-  medium: { label: 'Medium', color: 'text-amber-400',  dot: 'bg-amber-400' },
-  high:   { label: 'High',   color: 'text-orange-400', dot: 'bg-orange-400' },
-  urgent: { label: 'Urgent', color: 'text-red-400',    dot: 'bg-red-400' },
+export const TASK_PRIORITY_CONFIG: Record<TaskPriority, {label: string; color: string; bg: string; dot: string}> = {
+  low:    { label: 'Low',    color: '#8A877E', bg: '#F5F4EF', dot: '#C8C5BB' },
+  medium: { label: 'Medium', color: '#FF9500', bg: '#FFF7ED', dot: '#FF9500' },
+  high:   { label: 'High',   color: '#FF3B30', bg: '#FFF5F5', dot: '#FF3B30' },
+  urgent: { label: 'Urgent', color: '#FF3B30', bg: '#FFF5F5', dot: '#FF3B30' },
 }

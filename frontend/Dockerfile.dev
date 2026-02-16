@@ -1,12 +1,12 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# This is a placeholder - I'll replace this when building the Next.js app
-# For now, just run a simple server that returns "Frontend Coming Soon"
+COPY package.json package-lock.json ./
+RUN npm ci
 
-RUN echo '{"name":"placeholder","version":"1.0.0"}' > package.json
+COPY . .
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "echo 'Frontend placeholder running on port 3001' && tail -f /dev/null"]
+CMD ["npm", "run", "dev"]
