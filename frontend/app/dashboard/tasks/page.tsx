@@ -2,11 +2,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'next/navigation'
-import { tasksApi, projectsApi } from '@/lib/api'
+import { tasksApi, projectsApi, teamsApi } from '@/lib/api'
 import { Task, TaskStatus, TaskPriority, TASK_PRIORITY_CONFIG, TASK_STATUS_CONFIG, KANBAN_COLS } from '@/types'
-import { Plus, X, Loader2 } from 'lucide-react'
+import { Plus, X, Loader2, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow } from 'date-fns'
+import { useAuthStore } from '@/store/auth'
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
   todo: '#8A877E', in_progress: '#1A56FF', in_review: '#7C3AED', done: '#00C781', archived: '#C8C5BB'
@@ -36,7 +37,8 @@ export default function TasksPage() {
         ...old,
         { ...newTask, id: Date.now(), version: 1, status: newTask.status || 'todo',
           priority: newTask.priority || 'medium', created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(), completed_at: null, ai_category: null, ai_suggested_priority: null }
+          updated_at: new Date().toISOString(), completed_at: null, ai_category: null, 
+          ai_suggested_priority: null, created_by: 0, assignee: null, creator: null, project: undefined }
       ])
       return { prev }
     },
@@ -156,7 +158,7 @@ function TaskCardItem({ task, onClick }: { task: Task; onClick: () => void }) {
       {/* Priority + title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: pr.dot, flexShrink: 0 }} />
-        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: pr.color === 'text-smoke' ? '#8A877E' : pr.color === 'text-warn' ? '#FF9500' : '#FF3B30' }}>
+        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: pr.color }}>
           {pr.label}
         </span>
       </div>
@@ -166,9 +168,21 @@ function TaskCardItem({ task, onClick }: { task: Task; onClick: () => void }) {
 
       {/* Footer */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '0.7rem', color: '#C8C5BB' }}>
-          {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {task.assignee && (
+            <div style={{ 
+              width: 20, height: 20, borderRadius: '50%', 
+              background: 'linear-gradient(135deg, #1A56FF, #7C3AED)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.65rem', fontWeight: 700, color: '#fff'
+            }}>
+              {(task.assignee.full_name || task.assignee.email).slice(0, 1).toUpperCase()}
+            </div>
+          )}
+          <span style={{ fontSize: '0.7rem', color: '#C8C5BB' }}>
+            {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
+          </span>
+        </div>
         {task.due_date && (
           <span style={{ fontSize: '0.68rem', fontWeight: 600, color: new Date(task.due_date) < new Date() ? '#FF3B30' : '#8A877E', background: new Date(task.due_date) < new Date() ? '#FFF5F5' : '#F5F4EF', padding: '2px 7px', borderRadius: 99 }}>
             Due {formatDistanceToNow(new Date(task.due_date), { addSuffix: true })}
@@ -180,16 +194,19 @@ function TaskCardItem({ task, onClick }: { task: Task; onClick: () => void }) {
 }
 
 function CreateModal({ projects, defaultProjectId, onClose, onSubmit, loading }: {
-  projects: { id: number; name: string }[]
+  projects: { id: number; name: string; team_id: number }[]
   defaultProjectId?: number
   onClose: () => void
   onSubmit: (d: Parameters<typeof tasksApi.create>[0]) => void
   loading: boolean
 }) {
+  const user = useAuthStore(s => s.user)
   const [title, setTitle] = useState('')
   const [desc, setDesc]   = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [projectId, setProjectId] = useState(defaultProjectId || projects[0]?.id || 0)
+  const [assignedTo, setAssignedTo] = useState<number | null>(null)
+  const [assignToMe, setAssignToMe] = useState(false)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -199,13 +216,24 @@ function CreateModal({ projects, defaultProjectId, onClose, onSubmit, loading }:
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8C5BB', display: 'flex', padding: 4 }}><X size={18} /></button>
         </div>
 
-        <form onSubmit={e => { e.preventDefault(); if (!projectId) { toast.error('Select a project'); return }; onSubmit({ title, description: desc || undefined, priority, project_id: projectId }) }}
+        <form onSubmit={e => { 
+          e.preventDefault(); 
+          if (!projectId) { toast.error('Select a project'); return }
+          onSubmit({ 
+            title, 
+            description: desc || undefined, 
+            priority, 
+            project_id: projectId,
+            assigned_to: assignToMe && user ? user.id : assignedTo || undefined
+          })
+        }}
           style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           <div>
             <label className="t-label" style={{ color: '#8A877E', display: 'block', marginBottom: 6 }}>Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What needs to be done?" required autoFocus className="input" />
           </div>
+          
           <div>
             <label className="t-label" style={{ color: '#8A877E', display: 'block', marginBottom: 6 }}>Description <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
             <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Add details..." rows={2} className="input" style={{ resize: 'none' }} />
@@ -226,6 +254,21 @@ function CreateModal({ projects, defaultProjectId, onClose, onSubmit, loading }:
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Assign to me checkbox */}
+          <div style={{ padding: '12px 14px', background: '#F5F4EF', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input 
+              type="checkbox" 
+              id="assignToMe"
+              checked={assignToMe} 
+              onChange={e => setAssignToMe(e.target.checked)}
+              style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#1A56FF' }}
+            />
+            <label htmlFor="assignToMe" style={{ fontSize: '0.875rem', color: '#8A877E', cursor: 'pointer', flex: 1 }}>
+              <User size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+              Assign to me
+            </label>
           </div>
 
           {projects.length === 0 && (
@@ -258,7 +301,7 @@ function TaskDetail({ task, onClose, onStatusChange }: {
             <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8A877E' }}>
               Task #{task.id}
             </span>
-            <span className="badge" style={{ background: TASK_PRIORITY_CONFIG[task.priority].bg === 'bg-sand' ? '#F5F4EF' : TASK_PRIORITY_CONFIG[task.priority].bg === 'bg-warn/10' ? '#FFF7ED' : '#FFF5F5', color: TASK_PRIORITY_CONFIG[task.priority].color === 'text-smoke' ? '#8A877E' : TASK_PRIORITY_CONFIG[task.priority].color === 'text-warn' ? '#FF9500' : '#FF3B30' }}>
+            <span className="badge" style={{ background: TASK_PRIORITY_CONFIG[task.priority].bg, color: TASK_PRIORITY_CONFIG[task.priority].color }}>
               {TASK_PRIORITY_CONFIG[task.priority].label}
             </span>
           </div>
@@ -291,18 +334,18 @@ function TaskDetail({ task, onClose, onStatusChange }: {
 
         {/* Meta */}
         <div style={{ borderTop: '1px solid #F5F4EF', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-			{[
-				['Created', formatDistanceToNow(new Date(task.created_at), { addSuffix: true })],
-				['Updated', formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })],
-				['Version', `v${task.version}`],
-				task.assignee ? ['Assigned to', task.assignee.full_name || task.assignee.email] : null,
-			].filter((row): row is string[] => row !== null).map(([label, value]) => (
-				<div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-				<span style={{ fontSize: '0.78rem', color: '#C8C5BB', fontWeight: 500 }}>{label}</span>
-				<span style={{ fontSize: '0.78rem', color: '#8A877E', fontWeight: 600 }}>{value}</span>
-				</div>
-			))}
-		</div>
+          {[
+            ['Created', formatDistanceToNow(new Date(task.created_at), { addSuffix: true })],
+            ['Updated', formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })],
+            ['Version', `v${task.version}`],
+            task.assignee ? ['Assigned to', task.assignee.full_name || task.assignee.email] : null,
+          ].filter((row): row is string[] => row !== null).map(([label, value]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', color: '#C8C5BB', fontWeight: 500 }}>{label}</span>
+              <span style={{ fontSize: '0.78rem', color: '#8A877E', fontWeight: 600 }}>{value}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -29,7 +29,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div style={{ marginBottom: 40 }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.04em', color: '#0A0A0F', marginBottom: 6 }}>
-          {greeting}, {user?.full_name?.split(' ')[0] || 'there'} 👋
+          {greeting}, {user?.full_name?.split(' ')[0] || 'there'} 
         </h1>
         <p style={{ color: '#8A877E', fontSize: '0.9rem' }}>
           Here&apos;s a snapshot of your workspace today.

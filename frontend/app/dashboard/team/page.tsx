@@ -237,7 +237,6 @@ function CreateTeamModal({ onClose, onSubmit, loading }: {
   )
 }
 
-// ── Add Member Modal ───────────────────────────────────────────────────────────
 
 function AddMemberModal({ team, onClose, onSubmit, loading }: {
   team: Team
