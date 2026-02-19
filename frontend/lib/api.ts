@@ -125,20 +125,12 @@ export const authApi = {
 // ==================== TEAMS API ====================
 
 export const teamsApi = {
-  list: async (): Promise<Team[]> => {
-    const response = await apiClient.get('/api/teams')
-    return response.data
-  },
-
-  create: async (data: TeamCreate): Promise<Team> => {
-    const response = await apiClient.post('/api/teams', data)
-    return response.data
-  },
-
-  addMember: async (teamId: number, email: string, role = 'member'): Promise<void> => {
-    await apiClient.post(`/api/teams/${teamId}/members`, { email, role })
+  list: () => apiClient.get<Team[]>('/api/teams').then(res => res.data),
+  create: (data: TeamCreate) => apiClient.post<Team>('/api/teams', data).then(res => res.data),
+  getMembers: (teamId: number) => apiClient.get<{user_id: Number; role: String; user: User}[]>(`/api/teams/${teamId}/members`).then(res => res.data),
+  addMember: (teamId: number, email: string, role = 'member') => apiClient.post(`/api/teams/${teamId}/members`, { email, role }),
+  removeMember: (teamId: number, userId: number) => apiClient.delete(`/api/teams/${teamId}/members/${userId}`)
   }
-}
 
 // ==================== PROJECTS API ====================
 
