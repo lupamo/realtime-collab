@@ -120,6 +120,11 @@ export default function TeamPage() {
 // ── Team Card ──────────────────────────────────────────────────────────────────
 
 function TeamCard({ team, onAddMember }: { team: Team; onAddMember: () => void }) {
+  const { data: members = [] } = useQuery({
+    queryKey: ['team-members', team.id],
+    queryFn: () => teamsApi.getMembers(team.id),
+  })
+
   return (
     <div className="card" style={{ padding: '24px 28px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -143,7 +148,7 @@ function TeamCard({ team, onAddMember }: { team: Team; onAddMember: () => void }
               <p style={{ fontSize: '0.8rem', color: '#8A877E' }}>{team.description}</p>
             )}
             <p style={{ fontSize: '0.72rem', color: '#C8C5BB', marginTop: 2 }}>
-              Created {formatDistanceToNow(new Date(team.created_at), { addSuffix: true })}
+              Created {formatDistanceToNow(new Date(team.created_at), { addSuffix: true })} · {members.length} {members.length === 1 ? 'member' : 'members'}
             </p>
           </div>
         </div>
@@ -156,6 +161,40 @@ function TeamCard({ team, onAddMember }: { team: Team; onAddMember: () => void }
           <Plus size={14} /> Add Member
         </button>
       </div>
+
+      {/* Members list */}
+      {members.length > 0 && (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #F5F4EF' }}>
+          <p className="t-label" style={{ color: '#8A877E', marginBottom: 10 }}>Team Members</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {members.map((member: { user_id: number; role: string; user: { id: number; email: string; full_name: string | null } }) => {
+              const cfg = ROLE_CONFIG[member.role as keyof typeof ROLE_CONFIG] || ROLE_CONFIG.member
+              const Icon = cfg.icon
+              return (
+                <div key={member.user_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#FAFAF8', borderRadius: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #1A56FF, #7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                    {(member.user.full_name || member.user.email).slice(0, 1).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0A0A0F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {member.user.full_name || member.user.email}
+                    </div>
+                    {member.user.full_name && (
+                      <div style={{ fontSize: '0.7rem', color: '#C8C5BB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {member.user.email}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 99, background: cfg.bg, flexShrink: 0 }}>
+                    <Icon size={11} color={cfg.color} />
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Team ID hint */}
       <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #F5F4EF', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -237,6 +276,7 @@ function CreateTeamModal({ onClose, onSubmit, loading }: {
   )
 }
 
+// ── Add Member Modal ───────────────────────────────────────────────────────────
 
 function AddMemberModal({ team, onClose, onSubmit, loading }: {
   team: Team

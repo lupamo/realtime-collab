@@ -26,6 +26,23 @@ export default function TasksPage() {
   })
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list })
   const { data: teams = [] } = useQuery({ queryKey: ['teams'], queryFn: teamsApi.list })
+  
+  // Fetch all team members for all teams
+  const teamIds = teams.map(t => t.id)
+  const { data: allMembers = [] } = useQuery({
+    queryKey: ['team-members', teamIds],
+    queryFn: async () => {
+      const memberPromises = teamIds.map(id => 
+        teamsApi.getMembers(id).catch(() => [])
+      )
+      const results = await Promise.all(memberPromises)
+      return teamIds.reduce((acc, id, index) => {
+        acc[id] = results[index]
+        return acc
+      }, {} as Record<number, { user_id: number; role: string; user: { id: number; email: string; full_name: string | null } }[]>)
+    },
+    enabled: teamIds.length > 0,
+  })
 
   const createMutation = useMutation({
     mutationFn: tasksApi.create,
@@ -81,6 +98,7 @@ export default function TasksPage() {
         <CreateModal
           projects={projects}
           teams={teams}
+          allMembers={allMembers}
           defaultProjectId={projectId}
           onClose={() => setCreating(false)}
           onSubmit={d => createMutation.mutate(d)}
@@ -146,9 +164,10 @@ function TaskCardItem({ task, onClick }: { task: Task; onClick: () => void }) {
   )
 }
 
-function CreateModal({ projects, teams, defaultProjectId, onClose, onSubmit, loading }: {
+function CreateModal({ projects, teams, allMembers, defaultProjectId, onClose, onSubmit, loading }: {
   projects: { id: number; name: string; team_id: number }[]
-  teams: { id: number; name: string; members?: { user_id: number; user: { id: number; email: string; full_name: string | null } }[] }[]
+  teams: { id: number; name: string }[]
+  allMembers: Record<number, { user_id: number; role: string; user: { id: number; email: string; full_name: string | null } }[]>
   defaultProjectId?: number; onClose: () => void; onSubmit: (d: Parameters<typeof tasksApi.create>[0]) => void; loading: boolean
 }) {
   const user = useAuthStore(s => s.user)
@@ -161,7 +180,7 @@ function CreateModal({ projects, teams, defaultProjectId, onClose, onSubmit, loa
   // Get team members for selected project
   const selectedProject = projects.find(p => p.id === projectId)
   const selectedTeam = teams.find(t => t.id === selectedProject?.team_id)
-  const teamMembers = selectedTeam?.members?.map(m => m.user) || []
+  const teamMembers = selectedProject?.team_id ? (allMembers[selectedProject.team_id] || []).map(m => m.user) : []
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

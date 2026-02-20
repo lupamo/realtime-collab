@@ -480,6 +480,27 @@ async def add_team_member(
     
     return {"message": f"Added {new_member.email} to team"}
 
+@app.get("/api/teams/{team_id}/members")
+async def get_team_members(
+    team_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all members of a team."""
+    membership = db.query(models.team_members).filter(
+        models.team_members.c.team_id == team_id,
+        models.team_members.c.user_id == current_user.id
+    ).first()
+    
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access")
+    
+    members = db.query(
+        models.team_members.c.user_id, models.team_members.c.role, models.User
+    ).join(models.User, models.User.id == models.team_members.c.user_id
+    ).filter(models.team_members.c.team_id == team_id).all()
+    
+    return [{"user_id": m.user_id, "role": m.role, "user": {"id": m.User.id, "email": m.User.email, "full_name": m.User.full_name}} for m in members]
 
 if __name__ == "__main__":
     import uvicorn
